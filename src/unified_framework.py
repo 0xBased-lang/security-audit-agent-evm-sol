@@ -444,15 +444,143 @@ class UnifiedSecurityFramework:
         Convert adversarial testing results to unified format
 
         Args:
-            results: Results from adversarial orchestrator
+            results: Results from adversarial orchestrator (AdversarialTestResults)
 
         Returns:
             List of unified vulnerabilities
         """
-        # TODO: Implement conversion from adversarial results
-        # For now, return empty list
-        self.logger.info("Adversarial results conversion not yet implemented")
-        return []
+        vulnerabilities = []
+
+        if not results or not hasattr(results, 'vulnerabilities'):
+            self.logger.warning("No adversarial results to convert")
+            return []
+
+        self.logger.info(f"Converting {len(results.vulnerabilities)} adversarial findings")
+
+        for idx, adv_vuln in enumerate(results.vulnerabilities):
+            try:
+                # Extract core information
+                vuln_type = adv_vuln.get('type', 'unknown_exploit')
+                title = adv_vuln.get('title', f"Adversarial exploit {idx + 1}")
+                description = adv_vuln.get('description', '')
+
+                # Determine severity based on profit or impact
+                profit = adv_vuln.get('profit_extracted', 0)
+                severity = self._determine_adversarial_severity(profit, adv_vuln)
+
+                # Extract location if available
+                location_data = adv_vuln.get('location', {})
+                location = VulnerabilityLocation(
+                    file=location_data.get('file', 'unknown'),
+                    line=location_data.get('line'),
+                    function=location_data.get('function'),
+                    contract=location_data.get('contract'),
+                )
+
+                # Create unified vulnerability
+                vuln = UnifiedVulnerability(
+                    id=f"adv-{idx + 1:03d}",
+                    type=vuln_type,
+                    severity=severity,
+                    title=title,
+                    description=description,
+                    location=location,
+                    detected_by='adversarial_agent',
+                    confidence=adv_vuln.get('confidence', 0.85),
+
+                    # Adversarial-specific fields
+                    exploit_transaction_sequence=adv_vuln.get('attack_sequence', []),
+                    profit_extracted=profit,
+                    invariant_violated=adv_vuln.get('invariant_violated'),
+                    feasibility_score=adv_vuln.get('feasibility_score', 75),
+
+                    # Impact analysis
+                    potential_loss_usd=profit if profit > 0 else adv_vuln.get('potential_loss', 0),
+                    impact_description=adv_vuln.get('impact', ''),
+
+                    # Remediation
+                    recommendation=adv_vuln.get('recommendation', self._generate_adversarial_recommendation(vuln_type)),
+
+                    # Metadata
+                    tags=['adversarial', 'economic_exploit', vuln_type],
+                    metadata={
+                        'strategy': adv_vuln.get('strategy'),
+                        'iterations': adv_vuln.get('iterations'),
+                        'search_algorithm': adv_vuln.get('search_algorithm'),
+                    }
+                )
+
+                vulnerabilities.append(vuln)
+
+            except Exception as e:
+                self.logger.error(f"Failed to convert adversarial vulnerability {idx}: {e}")
+                continue
+
+        self.logger.info(f"Successfully converted {len(vulnerabilities)} adversarial vulnerabilities")
+
+        return vulnerabilities
+
+    def _determine_adversarial_severity(
+        self,
+        profit: float,
+        vuln_data: Dict[str, Any]
+    ) -> VulnerabilitySeverity:
+        """
+        Determine severity based on exploit profitability and impact
+
+        Args:
+            profit: Profit extracted in ETH/SOL
+            vuln_data: Vulnerability data
+
+        Returns:
+            Severity level
+        """
+        # Check if explicit severity provided
+        if 'severity' in vuln_data:
+            try:
+                return VulnerabilitySeverity(vuln_data['severity'].upper())
+            except (ValueError, AttributeError):
+                pass
+
+        # Determine from profit (assuming ETH/SOL at ~$2000-3000)
+        if profit > 100:  # > $200k
+            return VulnerabilitySeverity.CRITICAL
+        elif profit > 10:  # > $20k
+            return VulnerabilitySeverity.HIGH
+        elif profit > 1:  # > $2k
+            return VulnerabilitySeverity.MEDIUM
+        elif profit > 0:
+            return VulnerabilitySeverity.LOW
+        else:
+            # No profit extracted but invariant violated
+            if vuln_data.get('invariant_violated'):
+                return VulnerabilitySeverity.MEDIUM
+            return VulnerabilitySeverity.LOW
+
+    def _generate_adversarial_recommendation(self, vuln_type: str) -> str:
+        """
+        Generate recommendation based on vulnerability type
+
+        Args:
+            vuln_type: Type of vulnerability
+
+        Returns:
+            Remediation recommendation
+        """
+        recommendations = {
+            'oracle_manipulation': 'Use TWAP oracle with minimum update interval. Implement circuit breakers for price deviations >5%.',
+            'flash_loan': 'Add flash loan detection and protection. Use commit-reveal patterns for critical operations.',
+            'sandwich_attack': 'Implement MEV protection: private transactions, time-weighted pricing, or MEV-resistant AMM design.',
+            'liquidation_sniping': 'Add liquidation delays or Dutch auction mechanisms. Distribute MEV to protocol users.',
+            'arbitrage_exploit': 'Review arbitrage opportunities. Consider if this is protocol design or exploit.',
+            'reentrancy': 'Add reentrancy guards. Follow checks-effects-interactions pattern.',
+            'frontrunning': 'Use commit-reveal, time-locks, or private transaction submission.',
+        }
+
+        return recommendations.get(
+            vuln_type,
+            'Review exploit mechanics and implement appropriate safeguards. Consider economic incentives.'
+        )
 
     def _detect_chain(self, project_path: str) -> str:
         """
@@ -501,12 +629,35 @@ class UnifiedSecurityFramework:
             report.save(str(json_path))
             self.logger.info(f"Saved JSON report: {json_path}")
 
-        # TODO: Implement markdown and HTML generation
+        # Save Markdown
         if 'markdown' in self.config.output_formats:
-            self.logger.info("Markdown report generation not yet implemented")
+            from .reports.markdown_generator import MarkdownReportGenerator
+            md_generator = MarkdownReportGenerator()
+            md_path = output_dir / 'comprehensive-report.md'
+            md_generator.save(report, str(md_path))
+            self.logger.info(f"Saved Markdown report: {md_path}")
 
+        # Save TOON (if enabled)
+        if 'toon' in self.config.output_formats:
+            from .utils.toon_encoder import TOONEncoder
+            toon_encoder = TOONEncoder()
+            toon_str = toon_encoder.encode_report(report.to_dict())
+            toon_path = output_dir / 'comprehensive-report.toon'
+            with open(toon_path, 'w') as f:
+                f.write(toon_str)
+            self.logger.info(f"Saved TOON report: {toon_path}")
+
+            # Log token savings
+            json_tokens = len(report.to_json()) // 4
+            toon_tokens = len(toon_str) // 4
+            savings = (1 - toon_tokens / json_tokens) * 100 if json_tokens > 0 else 0
+            self.logger.info(
+                f"TOON savings: {savings:.1f}% ({json_tokens} → {toon_tokens} tokens)"
+            )
+
+        # Save HTML
         if 'html' in self.config.output_formats:
-            self.logger.info("HTML report generation not yet implemented")
+            self.logger.info("HTML report generation not yet implemented (Phase 2+)")
 
 
 # Convenience functions
