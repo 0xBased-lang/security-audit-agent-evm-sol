@@ -1,6 +1,6 @@
 # Security Audit Command
 
-You are tasked with performing a comprehensive blockchain security audit using the integrated framework.
+You are tasked with performing a comprehensive blockchain security audit using the **Unified Security Framework** (Phase 2).
 
 ## Your Task
 
@@ -8,40 +8,67 @@ You are tasked with performing a comprehensive blockchain security audit using t
    - Check for Solidity files (.sol) → EVM project
    - Check for Rust files (.rs) and Anchor.toml → Solana project
    - Check for both → Ask user which to audit
+   - Automatically detected by the framework
 
-2. **Run Security Analysis**:
-   - Execute appropriate security tools based on chain type
-   - Use the AuditOrchestrator from `src/core/AuditOrchestrator.js`
-   - Pass the project path from $ARGUMENTS or current directory
+2. **Determine Audit Mode**:
+   - Parse $ARGUMENTS for mode flags (--quick, --standard, --deep)
+   - Default to **standard** if not specified
+   - Quick: 2-5 min (traditional tools only)
+   - Standard: 30-60 min (traditional + basic adversarial)
+   - Deep: 2-4 hours (full 10-layer AASS)
 
-3. **Analyze Results**:
-   - Review all findings from automated tools
-   - Apply AI-powered analysis for:
+3. **Run Security Analysis**:
+   - Execute unified security framework
+   - Combines traditional tools + adversarial testing
+   - Automatic multi-chain adapter selection
+   - Cross-references findings from all sources
+
+4. **Analyze Results**:
+   - Review findings from:
+     - Traditional static analysis (Slither, Mythril, etc.)
+     - Adversarial agents (economic exploits, MEV)
+     - Protocol invariant violations
+   - Apply AI-powered synthesis:
      - False positive detection
-     - Severity validation
+     - Vulnerability deduplication
+     - Priority scoring
      - Exploit chain identification
-     - Risk prioritization
 
-4. **Generate Report**:
-   - Create comprehensive markdown report
-   - Include executive summary
-   - List all findings by severity
-   - Provide remediation recommendations
+5. **Generate Report**:
+   - Comprehensive report in multiple formats
+   - Statistics and risk assessment
+   - Prioritized vulnerability list
+   - Actionable remediation recommendations
 
-5. **Interactive Review** (if findings found):
-   - Ask user which findings they want to discuss in detail
+6. **Interactive Review** (if findings found):
+   - Present top critical/high findings
+   - Ask user which findings they want to discuss
    - Provide code fixes for selected vulnerabilities
-   - Explain attack vectors and impact
+   - Explain attack vectors and real-world impact
 
 ## Command Execution
 
 ```bash
-# Run audit
-node src/cli.js audit --project $ARGUMENTS --format markdown
+# Use the new unified framework (Python-based)
 
-# If no argument, use current directory
-node src/cli.js audit --format markdown
+# Standard audit (default)
+python -m src $ARGUMENTS
+
+# Quick audit (if --quick in arguments)
+python -m src --quick $ARGUMENTS
+
+# Deep audit (if --deep in arguments)
+python -m src --deep $ARGUMENTS
+
+# If no arguments provided, audit current directory
+python -m src .
 ```
+
+**Note**: The unified framework automatically:
+- Detects chain type
+- Selects optimal simulation adapter
+- Runs appropriate tools
+- Generates JSON/markdown/HTML reports
 
 ## Response Format
 
