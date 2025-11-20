@@ -1,0 +1,37 @@
+# Adversarial Agent Framework Requirements
+# Python dependencies for MEV and economic exploit detection
+
+# Core Web3 libraries
+web3==6.15.1
+eth-account==0.11.0
+eth-utils==4.0.0
+
+# Anthropic Claude API (for meta-agent AI orchestration)
+anthropic==0.17.0
+
+# Data analysis and numerical computation
+numpy==1.26.3
+pandas==2.1.4
+
+# Optional: Advanced features (Phase 2+)
+# Uncomment when implementing advanced search algorithms
+
+# Deep learning for RL (Phase 2+)
+# torch==2.1.2
+# stable-baselines3==2.2.1
+
+# Visualization (optional)
+# matplotlib==3.8.2
+# seaborn==0.13.1
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.3
+
+# Development
+black==24.1.1
+mypy==1.8.0
+
+# Note: Foundry (Anvil) must be installed separately:
+# curl -L https://foundry.paradigm.xyz | bash
+# foundryup
