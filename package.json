@@ -1,0 +1,51 @@
+{
+  "name": "security-audit-agent-evm-sol",
+  "version": "1.0.0",
+  "description": "AI-powered blockchain security auditing framework for EVM and Solana",
+  "main": "src/core/index.js",
+  "scripts": {
+    "audit:evm": "node src/cli.js audit --chain evm",
+    "audit:solana": "node src/cli.js audit --chain solana",
+    "audit": "node src/cli.js audit",
+    "report": "node src/cli.js report",
+    "install:tools": "bash scripts/install-tools.sh",
+    "test": "jest",
+    "lint": "eslint src/",
+    "format": "prettier --write 'src/**/*.{js,ts,json}'"
+  },
+  "keywords": [
+    "security",
+    "audit",
+    "blockchain",
+    "ethereum",
+    "solana",
+    "smart-contracts",
+    "defi",
+    "web3",
+    "ai",
+    "claude"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^11.0.0",
+    "chalk": "^4.1.2",
+    "ora": "^5.4.1",
+    "inquirer": "^8.2.5",
+    "glob": "^10.3.10",
+    "js-yaml": "^4.1.0",
+    "marked": "^9.1.6",
+    "pdf-lib": "^1.17.1",
+    "winston": "^3.11.0",
+    "@anthropic-ai/sdk": "^0.17.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "eslint": "^8.55.0",
+    "prettier": "^3.1.1",
+    "@types/node": "^20.10.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
