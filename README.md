@@ -16,6 +16,7 @@ This framework provides an AI-orchestrated security auditing system for blockcha
 - **Automated Tool Orchestration**: AI-driven coordination of 15+ security tools
 - **Comprehensive Vulnerability Detection**: OWASP Top 10 (2025) and beyond
 - **Intelligent Analysis**: Claude-powered pattern recognition and risk assessment
+- **🆕 Adversarial Agent Testing**: Advanced MEV, economic exploit, and cross-protocol vulnerability detection
 - **Detailed Reports**: Professional audit reports with severity classifications
 - **Cost-Effective**: 100% free tooling, saving $50k-$500k per audit
 - **CI/CD Integration**: Automated security checks in development pipelines
@@ -38,22 +39,33 @@ Traditional security audits cost:
 │  • Cross-Tool Analysis Correlation                          │
 │  • Risk Assessment & Prioritization                         │
 │  • Report Generation & Recommendations                      │
+│  • 🆕 Adversarial Agent Coordination                        │
 └──────────────────┬──────────────────────────────────────────┘
                    │
-      ┌────────────┴────────────┐
-      │                         │
-┌─────▼─────────┐      ┌───────▼────────┐
-│  EVM Stack    │      │  Solana Stack  │
-├───────────────┤      ├────────────────┤
-│ • Slither     │      │ • Cargo Audit  │
-│ • Mythril     │      │ • Clippy       │
-│ • Echidna     │      │ • Anchor Lints │
-│ • Foundry     │      │ • solana-test  │
-│ • Certora     │      │ • Kangaroo     │
-│ • Securify2   │      │ • SolanaFM     │
-│ • Tenderly    │      │ • Rudra        │
-│ • Hardhat     │      │ • VRust        │
-└───────────────┘      └────────────────┘
+      ┌────────────┴────────────────┐
+      │                              │
+┌─────▼─────────┐      ┌────────────▼──────────┐
+│  Static       │      │  🆕 Adversarial       │
+│  Analysis     │      │  Agent Testing        │
+├───────────────┤      ├───────────────────────┤
+│ • Slither     │      │ • MEV Simulation      │
+│ • Mythril     │      │ • Economic Exploits   │
+│ • Echidna     │      │ • Flash Loan Attacks  │
+│ • Foundry     │      │ • Oracle Manipulation │
+│ • Certora     │      │ • Cross-Protocol      │
+│ • Securify2   │      │ • RL/Evolutionary     │
+└───────┬───────┘      └───────┬───────────────┘
+        │                      │
+    ┌───┴──────────────────────┴───┐
+    │                                │
+┌───▼────────┐            ┌─────────▼──────┐
+│ EVM Stack  │            │ Solana Stack   │
+├────────────┤            ├────────────────┤
+│ • Solidity │            │ • Rust/Anchor  │
+│ • Foundry  │            │ • Clippy       │
+│ • REVM     │            │ • Cargo Audit  │
+│ • Tenderly │            │ • VRust        │
+└────────────┘            └────────────────┘
 ```
 
 ## 📊 OWASP Smart Contract Top 10 (2025) Coverage
@@ -72,6 +84,32 @@ Traditional security audits cost:
 | **#10** | Denial of Service | N/A | Foundry, Manual Review |
 
 **Total tracked losses in 2024**: ~$1.42 Billion
+
+## 🆕 Advanced: Adversarial Agent Testing
+
+**NEW!** Go beyond traditional static analysis to catch economic exploits, MEV vulnerabilities, and cross-protocol attacks that cost **$1.42 Billion in 2024**.
+
+```bash
+# Run adversarial testing on your DeFi protocol
+python -m adversarial.test \
+  --chain evm \
+  --project ./my-defi-protocol \
+  --strategies sandwich,oracle_manipulation,flash_loan \
+  --search-algorithm evolutionary \
+  --max-iterations 2000
+```
+
+**What it detects:**
+- 💰 Sandwich attacks ($289.76M in losses 2024)
+- 📊 Oracle manipulation ($52M in losses 2024)
+- ⚡ Flash loan exploits ($33.8M in losses 2024)
+- 🔄 Cross-protocol arbitrage opportunities
+- 🎯 Liquidation sniping vulnerabilities
+- 🗳️ Governance attacks
+
+**Learn more**: [Adversarial Agent Documentation](./docs/ADVERSARIAL_AGENTS.md) | [Quick Start](./docs/ADVERSARIAL_QUICKSTART.md)
+
+---
 
 ## 🚀 Quick Start
 
