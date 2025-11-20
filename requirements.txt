@@ -1,0 +1,24 @@
+# Unified Security Framework - Core Dependencies
+#
+# Installation: pip install -r requirements.txt
+#
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+
+# Blockchain interaction (for adversarial testing)
+web3>=6.0.0
+eth-abi>=4.0.0
+
+# TOON format (Token-Oriented Object Notation)
+# NOTE: Official package 'toon-format' is in beta (v0.9.x)
+# Uncomment when stable release is available:
+# toon-format>=1.0.0
+
+# AI synthesis (optional)
+# Uncomment if ANTHROPIC_API_KEY is available:
+# anthropic>=0.7.0
+
+# For adversarial testing requirements, also install:
+# pip install -r requirements-adversarial.txt
