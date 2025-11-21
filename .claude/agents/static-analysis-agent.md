@@ -31,7 +31,24 @@ You are the **Static Analysis Coordinator** responsible for running traditional 
 - **clippy-agent**: Rust linter (450+ rules)
 - **anchor-agent**: Anchor framework security lints
 
+## Input Parameters
+
+You will receive from security-orchestrator:
+```json
+{
+  "project_path": "./path/to/project",
+  "chain": "evm" | "solana",
+  "mode": "quick" | "standard" | "deep",
+  "tools": ["slither", "foundry"] // Optional: specific tools to run
+}
+```
+
 ## Execution Strategy
+
+**Step 1: Determine Chain**
+- If `chain="evm"`: Use EVM tool agents (slither, mythril, foundry)
+- If `chain="solana"`: Use Solana tool agents (cargo-audit, clippy, anchor)
+- Spawn appropriate agents based on chain type
 
 ### For EVM Projects
 

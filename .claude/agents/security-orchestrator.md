@@ -59,27 +59,84 @@ You are the **Lead Security Orchestrator** for blockchain security audits. You c
 
 ## Workflow Pattern
 
-### Step 1: Initial Analysis
+### Step 1: Initial Analysis & Chain Detection
 ```markdown
 1. Read project files to understand structure
-2. Detect chain type (EVM vs Solana)
+2. Detect chain type using these indicators:
+
+   **EVM Detection**:
+   - Files ending in .sol (Solidity)
+   - foundry.toml or hardhat.config.js present
+   - package.json with hardhat/foundry/truffle
+   - contracts/ directory with .sol files
+
+   **Solana Detection**:
+   - Files ending in .rs in src/lib.rs or programs/
+   - Cargo.toml with solana-program or anchor-lang dependencies
+   - Anchor.toml present
+   - programs/ directory with Rust files
+
+   **Multi-Chain Detection**:
+   - Both .sol AND .rs files present
+   - Bridge contracts or cross-chain logic
+   - Run BOTH EVM and Solana audits
+
 3. Identify contract entry points and critical functions
-4. Determine audit mode based on complexity
+4. Determine audit mode based on complexity (quick/standard/deep)
+```
+
+**Chain Detection Code**:
+```bash
+# Use Glob to find files
+evm_files=$(find . -name "*.sol" -type f | head -5)
+solana_files=$(find . -name "*.rs" -path "*/programs/*" -o -name "Cargo.toml" | head -5)
+
+if [ -n "$evm_files" ] && [ -n "$solana_files" ]; then
+    chain="multi-chain"
+elif [ -n "$evm_files" ]; then
+    chain="evm"
+elif [ -n "$solana_files" ]; then
+    chain="solana"
+else
+    chain="unknown"
+fi
+
+echo "Detected chain: $chain"
 ```
 
 ### Step 2: Parallel Agent Deployment
+
 For **EVM projects**:
 ```markdown
-Spawn in parallel:
-- static-analysis-agent (for Slither, Mythril, Foundry)
-- adversarial-agent (for MEV, flash loans, economic exploits)
+Spawn in parallel (using Task tool):
+- static-analysis-agent with chain=evm, tools=[slither, foundry, mythril]
+- adversarial-agent with chain=evm, strategies=[mev, flash-loan, invariants]
+
+Expected agents to be spawned by sub-agents:
+  Static: slither-agent, mythril-agent, foundry-agent
+  Adversarial: mev-hunter-agent, flash-loan-detector, invariant-checker
 ```
 
 For **Solana projects**:
 ```markdown
-Spawn in parallel:
-- static-analysis-agent (for Cargo Audit, Clippy, Anchor lints)
-- adversarial-agent (for Solana-specific exploits)
+Spawn in parallel (using Task tool):
+- static-analysis-agent with chain=solana, tools=[cargo-audit, clippy, anchor]
+- adversarial-agent with chain=solana, strategies=[signer-check, pda-collision, account-confusion, cpi-exploit]
+
+Expected agents to be spawned by sub-agents:
+  Static: cargo-audit-agent, clippy-agent, anchor-agent
+  Adversarial: signer-validator-agent, pda-collision-detector, account-confusion-detector, cpi-exploit-detector
+```
+
+For **Multi-Chain projects**:
+```markdown
+Spawn BOTH sets in parallel (4 agents total):
+- static-analysis-agent with chain=evm
+- adversarial-agent with chain=evm
+- static-analysis-agent with chain=solana
+- adversarial-agent with chain=solana
+
+Wait for all 4 to complete, then merge findings by chain in final report
 ```
 
 ### Step 3: Results Collection

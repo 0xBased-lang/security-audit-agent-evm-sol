@@ -24,15 +24,33 @@ Traditional tools find code-level bugs. You find **economic exploits** - vulnera
 
 ## Available Adversarial Agents
 
-### Attack Agents (Haiku)
+### EVM Attack Agents (Haiku)
 - **mev-hunter-agent**: Detects sandwich attacks, front-running, liquidation sniping
 - **flash-loan-detector**: Tests flash loan attack vectors
 - **invariant-checker**: Validates protocol invariants hold under adversarial conditions
 
+### Solana Attack Agents (Haiku)
+- **signer-validator-agent**: Detects missing signer checks (CRITICAL - #1 Solana vulnerability)
+- **pda-collision-detector**: Finds PDA seed collision vulnerabilities
+- **account-confusion-detector**: Detects missing owner checks and type cosplay
+- **cpi-exploit-detector**: Finds unsafe Cross-Program Invocation patterns
+
 ### Future Agents (Planned)
-- **oracle-manipulator**: Tests oracle manipulation vectors
-- **pool-drainer**: Analyzes liquidity pool vulnerabilities
-- **cross-protocol-attacker**: Multi-protocol exploit detection
+- **oracle-manipulator**: Tests oracle manipulation vectors (EVM)
+- **pool-drainer**: Analyzes liquidity pool vulnerabilities (EVM)
+- **cross-protocol-attacker**: Multi-protocol exploit detection (Multi-chain)
+
+## Input Parameters
+
+You will receive from security-orchestrator:
+```json
+{
+  "project_path": "./path/to/project",
+  "chain": "evm" | "solana",
+  "mode": "quick" | "standard" | "deep",
+  "strategies": ["mev", "flash-loan", "signer-check", "pda-collision"]
+}
+```
 
 ## Attack Surface Analysis
 
@@ -76,9 +94,14 @@ Traditional tools find code-level bugs. You find **economic exploits** - vulnera
 
 ## Execution Strategy
 
-### QUICK Mode (3-5 minutes)
-Focus on highest-risk, fastest checks:
+**Step 0: Determine Chain**
+- If `chain="evm"`: Use EVM attack agents (mev-hunter, flash-loan, invariant-checker)
+- If `chain="solana"`: Use Solana attack agents (signer-validator, pda-collision, account-confusion, cpi-exploit)
+- Spawn appropriate agents based on chain type
 
+### For EVM Projects
+
+**QUICK Mode** (3-5 minutes):
 ```markdown
 1. Identify critical functions (transfer, swap, borrow)
 2. Spawn mev-hunter-agent on swap/transfer functions only
@@ -86,9 +109,7 @@ Focus on highest-risk, fastest checks:
 4. Return high-confidence exploits only
 ```
 
-### STANDARD Mode (8-12 minutes)
-Comprehensive adversarial testing:
-
+**STANDARD Mode** (8-12 minutes):
 ```markdown
 Spawn in parallel:
 - mev-hunter-agent (sandwich, front-running, liquidation)
@@ -99,6 +120,30 @@ For each exploit found:
 - Simulate on forked mainnet
 - Calculate profit extracted
 - Assess feasibility (0-100 score)
+```
+
+### For Solana Projects
+
+**QUICK Mode** (3-5 minutes):
+```markdown
+1. Identify authorization functions (withdraw, transfer, mint)
+2. Spawn signer-validator-agent (most critical check!)
+3. Run basic PDA seed validation
+4. Return critical findings only
+```
+
+**STANDARD Mode** (8-12 minutes):
+```markdown
+Spawn in parallel:
+- signer-validator-agent (missing signer checks - CRITICAL)
+- pda-collision-detector (PDA seed vulnerabilities)
+- account-confusion-detector (missing owner checks)
+- cpi-exploit-detector (unsafe Cross-Program Invocations)
+
+For each vulnerability found:
+- Assess exploitability
+- Calculate feasibility score
+- Document attack scenario
 ```
 
 ### DEEP Mode (20-30 minutes)
