@@ -7,9 +7,13 @@
     "audit:evm": "node src/cli.js audit --chain evm",
     "audit:solana": "node src/cli.js audit --chain solana",
     "audit": "node src/cli.js audit",
+    "adversarial": "node src/cli.js adversarial",
+    "invariants": "node src/cli.js invariants",
+    "tools": "node src/cli.js tools",
     "report": "node src/cli.js report",
     "install:tools": "bash scripts/install-tools.sh",
     "test": "jest",
+    "test:python": "python -m pytest tests/ -v",
     "lint": "eslint src/",
     "format": "prettier --write 'src/**/*.{js,ts,json}'"
   },
@@ -36,8 +40,7 @@
     "js-yaml": "^4.1.0",
     "marked": "^9.1.6",
     "pdf-lib": "^1.17.1",
-    "winston": "^3.11.0",
-    "@anthropic-ai/sdk": "^0.17.0"
+    "winston": "^3.11.0"
   },
   "devDependencies": {
     "jest": "^29.7.0",

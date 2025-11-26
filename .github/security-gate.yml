@@ -1,0 +1,247 @@
+# Security Gate Configuration
+# Week 5: CI/CD Integration
+#
+# Defines thresholds for blocking PRs/deployments based on security findings.
+# Adjust these values based on your risk tolerance and project requirements.
+
+# Gate name
+name: "Security Gate - Production"
+
+# Global settings
+settings:
+  mode: "enforce"  # enforce, warn, report
+  fail_on_error: true
+  require_all_checks: true
+
+# Critical severity thresholds
+critical:
+  max_count: 0  # Block if ANY critical issues found
+  block_commit: true
+  block_pr: true
+  block_deploy: true
+  notify: ["slack", "discord", "github"]
+  message: "🚨 CRITICAL: No critical vulnerabilities allowed"
+
+# High severity thresholds
+high:
+  max_count: 2  # Allow up to 2 high severity issues
+  block_commit: false  # Don't block commit, but warn
+  block_pr: true       # Block PR merge
+  block_deploy: true   # Block deployment
+  notify: ["slack", "github"]
+  message: "⚠️  HIGH: Fix high severity issues before merging"
+
+# Medium severity thresholds
+medium:
+  max_count: 10  # Allow up to 10 medium severity issues
+  block_commit: false
+  block_pr: false      # Don't block PR
+  block_deploy: true   # But block deployment
+  notify: ["github"]
+  message: "⚡ MEDIUM: Review medium severity issues"
+
+# Low severity thresholds
+low:
+  max_count: 50  # Allow up to 50 low severity issues
+  block_commit: false
+  block_pr: false
+  block_deploy: false
+  notify: []
+  message: "ℹ️  LOW: Address low severity issues when possible"
+
+# Specific vulnerability type thresholds
+vulnerability_types:
+  # Access Control
+  access_control:
+    severity: critical
+    max_count: 0
+    categories: ["unprotected_function", "missing_access_control", "privilege_escalation"]
+
+  # Reentrancy
+  reentrancy:
+    severity: critical
+    max_count: 0
+    categories: ["reentrancy", "cross_function_reentrancy", "read_only_reentrancy"]
+
+  # Oracle Manipulation
+  oracle_manipulation:
+    severity: critical
+    max_count: 0
+    categories: ["oracle_manipulation", "price_manipulation", "twap_manipulation"]
+
+  # Flash Loan
+  flash_loan_attack:
+    severity: high
+    max_count: 0
+    categories: ["flash_loan_attack", "single_block_exploit"]
+
+  # Governance
+  governance_attack:
+    severity: high
+    max_count: 0
+    categories: ["governance_attack", "flash_loan_voting", "proposal_manipulation"]
+
+  # MEV
+  mev_exploitable:
+    severity: high
+    max_count: 2  # Allow some MEV exposure if controlled
+    categories: ["sandwich_attack", "frontrunning", "backrunning"]
+
+  # Gas
+  gas_issues:
+    severity: low
+    max_count: 20
+    categories: ["gas_optimization", "unbounded_loop"]
+
+# Live adversarial testing thresholds (Week 4)
+adversarial:
+  # Attack execution results
+  successful_attacks:
+    max_count: 0  # Block if any attacks succeed
+    min_profit_usd: 100  # Only count if profit > $100
+
+  # Invariant violations
+  invariant_violations:
+    critical_max: 0
+    high_max: 1
+    medium_max: 5
+
+  # MEV profitability
+  mev_profitability:
+    max_profitable_opportunities: 2
+    min_profit_threshold: 1000  # Only count if > $1000
+
+# Code quality thresholds
+code_quality:
+  # Test coverage
+  test_coverage:
+    min_line_coverage: 80  # 80% minimum
+    min_branch_coverage: 70  # 70% minimum
+    block_pr: true
+
+  # Code complexity
+  complexity:
+    max_cyclomatic_complexity: 15
+    max_cognitive_complexity: 20
+    block_pr: false
+
+  # Documentation
+  documentation:
+    require_function_comments: false
+    require_natspec: true  # Solidity NatSpec
+    block_pr: false
+
+# Dependency security
+dependencies:
+  vulnerable_dependencies:
+    critical_max: 0
+    high_max: 2
+    block_pr: true
+
+  outdated_dependencies:
+    critical_max: 5
+    block_pr: false
+
+# Historical exploit replay (Week 4)
+historical_validation:
+  min_detection_rate: 0.80  # Must detect 80%+ of historical exploits
+  block_deploy: true
+  required_exploits:
+    - "Beanstalk"
+    - "Cream Finance"
+    - "Wormhole"
+
+# Notification configuration
+notifications:
+  slack:
+    critical: true
+    high: true
+    medium: false
+    low: false
+    webhook_secret: "SLACK_WEBHOOK_URL"
+
+  discord:
+    critical: true
+    high: false
+    medium: false
+    low: false
+    webhook_secret: "DISCORD_WEBHOOK_URL"
+
+  github:
+    critical: true
+    high: true
+    medium: true
+    low: false
+    comment_on_pr: true
+    create_issue: true  # For critical findings
+
+  email:
+    enabled: false
+    recipients: []
+    critical_only: true
+
+# Exemptions (use sparingly)
+exemptions:
+  # Files to skip
+  excluded_files:
+    - "tests/**"
+    - "scripts/**"
+    - "examples/**"
+    - "*.test.sol"
+
+  # Specific findings to ignore (by hash)
+  ignored_findings: []
+
+  # Timebound exemptions (expire automatically)
+  temporary_exemptions: []
+
+# Gate behavior by environment
+environments:
+  development:
+    mode: "warn"
+    critical.max_count: 1
+    high.max_count: 5
+    block_deploy: false
+
+  staging:
+    mode: "enforce"
+    critical.max_count: 0
+    high.max_count: 2
+    block_deploy: true
+
+  production:
+    mode: "enforce"
+    critical.max_count: 0
+    high.max_count: 0  # Zero tolerance for production
+    medium.max_count: 0
+    block_deploy: true
+    require_manual_approval: true
+
+# Reporting
+reporting:
+  generate_pdf: true
+  generate_sarif: true  # GitHub Code Scanning format
+  upload_to_s3: false
+  retention_days: 90
+
+# Advanced options
+advanced:
+  # Require security review sign-off
+  require_security_review: true
+  required_reviewers: ["security-team"]
+
+  # Require fix verification
+  require_fix_verification: true
+  retest_after_fix: true
+
+  # Time limits
+  max_scan_duration_minutes: 30
+  max_gate_evaluation_minutes: 5
+
+  # Parallel execution
+  parallel_tools: true
+  max_parallel_jobs: 3
+
+# Version
+version: "1.0.0"
+last_updated: "2025-11-26"

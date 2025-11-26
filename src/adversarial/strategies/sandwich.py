@@ -7,7 +7,7 @@ This is one of the most common MEV strategies, accounting for $289.76M in
 losses in 2024 alone.
 """
 
-from typing import List, Any
+from typing import List, Any, Dict
 from decimal import Decimal
 from .base import StrategyTemplate
 from ..simulation.evm_environment import Action, ActionType

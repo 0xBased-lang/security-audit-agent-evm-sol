@@ -77,7 +77,17 @@ class EVMAuditor {
      */
     async runSlither() {
         const outputPath = path.join(this.config.outputDir, 'slither.json');
-        const contractsPath = path.join(this.config.projectPath, 'contracts');
+
+        // Check if contracts directory exists, otherwise use project path
+        const contractsDir = path.join(this.config.projectPath, 'contracts');
+        let targetPath;
+        try {
+            await fs.access(contractsDir);
+            targetPath = contractsDir;
+        } catch {
+            // No contracts directory, use project path directly
+            targetPath = this.config.projectPath;
+        }
 
         try {
             // Find Solidity files
@@ -86,7 +96,7 @@ class EVMAuditor {
                 return { findings: [], raw: null };
             }
 
-            const command = `slither ${contractsPath} --json ${outputPath} --filter-paths "node_modules"`;
+            const command = `slither "${targetPath}" --json "${outputPath}" --filter-paths "node_modules"`;
 
             this.logger.verbose(`Executing: ${command}`);
             await execAsync(command, { cwd: this.config.projectPath });

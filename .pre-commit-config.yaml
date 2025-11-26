@@ -1,0 +1,90 @@
+# Pre-commit Hooks Configuration
+# Week 5: CI/CD Integration
+#
+# Installation:
+#   pip install pre-commit
+#   pre-commit install
+#
+# Usage:
+#   pre-commit run --all-files  # Run on all files
+#   pre-commit run              # Run on staged files only
+#   git commit                  # Hooks run automatically
+#
+# Skip hooks (emergency only):
+#   git commit --no-verify
+
+repos:
+  # Security scanning with custom framework
+  - repo: local
+    hooks:
+      # Fast security scan (< 30 seconds)
+      - id: security-quick-scan
+        name: Security Quick Scan
+        entry: python scripts/ci/pre_commit_security_scan.py --mode quick
+        language: python
+        pass_filenames: false
+        stages: [commit]
+        verbose: true
+        additional_dependencies:
+          - web3
+          - eth-account
+
+      # Solidity-specific checks
+      - id: solidity-security
+        name: Solidity Security Analysis
+        entry: python scripts/ci/pre_commit_security_scan.py --mode solidity
+        language: python
+        files: \.sol$
+        stages: [commit]
+        verbose: true
+
+  # Standard code quality tools
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.md$
+      - id: end-of-file-fixer
+        exclude: \.md$
+      - id: check-yaml
+        exclude: \.github/workflows/.*\.yml$
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: detect-private-key
+        exclude: ^tests/
+
+  # Python code quality
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        language_version: python3
+        files: \.py$
+        exclude: ^(tests/|examples/)
+
+  # Python linting
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: ['--max-line-length=120', '--ignore=E203,W503']
+        files: \.py$
+        exclude: ^(tests/|examples/)
+
+  # Security secrets detection
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: ^(tests/|\.pre-commit-config\.yaml)
+
+# Custom configuration
+fail_fast: false  # Run all hooks even if one fails
+default_stages: [commit, push]
+minimum_pre_commit_version: '3.0.0'
+
+# Hook-specific settings
+exclude: ^(node_modules/|\.git/|\.github/|build/|dist/)

@@ -7,6 +7,14 @@ from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 
+# SECURITY FIX: Import secret management
+from .security.secrets import (
+    SecretManager,
+    AnthropicAPIKey,
+    TenderlyAPIKey,
+    setup_secret_logging
+)
+
 
 @dataclass
 class AuditConfig:
@@ -56,17 +64,34 @@ class AuditConfig:
     max_memory_mb: int = 8192
     max_execution_time: int = 14400  # 4 hours
 
-    # API keys (loaded from environment)
-    anthropic_api_key: Optional[str] = field(default=None)
-    tenderly_api_key: Optional[str] = field(default=None)
+    # SECURITY FIX: API keys using secure secret management
+    # Store as SecretStr to prevent accidental logging
+    anthropic_api_key: Optional[AnthropicAPIKey] = field(default=None)
+    tenderly_api_key: Optional[TenderlyAPIKey] = field(default=None)
+
+    # Secret manager instance
+    _secret_manager: Optional[SecretManager] = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
-        """Load API keys from environment"""
+        """Load API keys from environment using secure secret management"""
+        # Setup secret-safe logging
+        setup_secret_logging()
+
+        # Initialize secret manager
+        self._secret_manager = SecretManager()
+
+        # Load API keys securely
+        # Only require API key if AI synthesis is explicitly requested
+        # (not during module import for defaults)
         if self.anthropic_api_key is None:
-            self.anthropic_api_key = os.environ.get('ANTHROPIC_API_KEY')
+            self.anthropic_api_key = self._secret_manager.load_anthropic_key(
+                required=False  # Load if available, but don't require
+            )
 
         if self.tenderly_api_key is None:
-            self.tenderly_api_key = os.environ.get('TENDERLY_API_KEY')
+            self.tenderly_api_key = self._secret_manager.load_tenderly_key(
+                required=False  # Optional
+            )
 
         # Adjust settings based on mode
         if self.mode == "quick":
@@ -108,9 +133,39 @@ class AuditConfig:
         """Deep audit configuration (2-4 hours)"""
         return cls(mode="deep")
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary"""
-        return {
+    def get_anthropic_key(self) -> Optional[str]:
+        """
+        Get Anthropic API key value safely.
+
+        Returns:
+            API key string or None
+        """
+        if self.anthropic_api_key:
+            return self.anthropic_api_key.value.get_secret_value()
+        return None
+
+    def get_tenderly_key(self) -> Optional[str]:
+        """
+        Get Tenderly API key value safely.
+
+        Returns:
+            API key string or None
+        """
+        if self.tenderly_api_key:
+            return self.tenderly_api_key.value.get_secret_value()
+        return None
+
+    def to_dict(self, mask_secrets: bool = True) -> Dict[str, Any]:
+        """
+        Convert to dictionary.
+
+        Args:
+            mask_secrets: If True, mask API keys in output
+
+        Returns:
+            Dictionary representation
+        """
+        result = {
             'mode': self.mode,
             'traditional_enabled': self.traditional_enabled,
             'traditional_tools': self.traditional_tools,
@@ -122,6 +177,18 @@ class AuditConfig:
             'output_dir': self.output_dir,
             'output_formats': self.output_formats,
         }
+
+        # Add API keys (masked by default)
+        if mask_secrets:
+            if self.anthropic_api_key:
+                result['anthropic_api_key'] = self.anthropic_api_key.get_masked()
+            if self.tenderly_api_key:
+                result['tenderly_api_key'] = self.tenderly_api_key.get_masked()
+        else:
+            result['anthropic_api_key'] = self.get_anthropic_key()
+            result['tenderly_api_key'] = self.get_tenderly_key()
+
+        return result
 
     def validate(self) -> bool:
         """

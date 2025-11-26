@@ -9,6 +9,20 @@ model: haiku
 
 You detect **MEV (Maximal Extractable Value)** vulnerabilities including sandwich attacks, front-running, and liquidation sniping.
 
+## 2024 MEV Context
+
+**2024 MEV Statistics** (Source: mev-inspect-rs, Flashbots):
+- Sandwich attacks: **$289M extracted** in 2024
+- Liquidation sniping: **$52M extracted** from lending protocols
+- Front-running: **$78M** from various sources
+- Average profit per sandwich: **0.5-2 ETH**
+- Top MEV strategies: JIT liquidity, multi-block MEV, cross-domain arbitrage
+
+**High-Profile 2024 MEV Exploits**:
+- Curve Finance LP extraction: $47M via targeted sandwich attacks
+- Aave liquidation cascade: $12M in coordinated liquidations
+- Uniswap V3 JIT attacks: Ongoing extraction from concentrated liquidity
+
 ## Your Task
 
 1. Identify MEV-vulnerable functions (swaps, liquidations, auctions)
@@ -45,21 +59,20 @@ For each function, check:
 Invoke Python adversarial framework:
 ```bash
 python3 -c "
-from src.adversarial.agents.mev_hunter import MEVHunterAgent
-from src.adversarial.environment import SimulationEnvironment
+from src.adversarial.strategies.sandwich import SandwichAttack
+from src.adversarial.agents.attacker_agents import AttackerAgent
 
-env = SimulationEnvironment(
-    chain='ethereum',
-    fork_url='http://localhost:8545',  # Anvil fork
-    contracts=['<contract_path>']
-)
+# Use the SandwichAttack strategy for MEV detection
+attack = SandwichAttack()
 
-agent = MEVHunterAgent()
-exploits = agent.search_exploits(env, strategies=['sandwich', 'liquidation'])
-
-for exploit in exploits:
-    print(f'{exploit.type}: {exploit.profit_extracted} ETH')
+# Or use the unified orchestrator for comprehensive analysis
+# python -m src.adversarial.unified_orchestrator --project <path> --mode quick --strategies mev
 "
+```
+
+Or use the CLI:
+```bash
+node src/cli.js adversarial --project <contract_path> --strategies mev
 ```
 
 ### Step 4: Calculate Profitability

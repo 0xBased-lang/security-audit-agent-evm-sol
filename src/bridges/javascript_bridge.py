@@ -38,7 +38,16 @@ class JavaScriptBridge:
         Args:
             project_root: Root directory of the project (where package.json is)
         """
-        self.project_root = project_root or os.getcwd()
+        # SECURITY FIX: Validate project_root path
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+        from src.security.validators import PathValidator
+
+        if project_root:
+            self.project_root = str(PathValidator.validate_project_path(project_root))
+        else:
+            self.project_root = os.getcwd()
+
         self.logger = logging.getLogger(__name__)
 
         # Verify npm is available
@@ -70,7 +79,8 @@ class JavaScriptBridge:
         self,
         project_path: str,
         tools: Optional[List[str]] = None,
-        timeout: int = 600
+        timeout: int = 600,
+        chain: str = "evm"
     ) -> Dict[str, Any]:
         """
         Run Phase 1 traditional audit tools
@@ -79,6 +89,7 @@ class JavaScriptBridge:
             project_path: Path to the smart contract project
             tools: List of specific tools to run (None = all tools)
             timeout: Maximum execution time in seconds
+            chain: Chain type (evm or solana)
 
         Returns:
             Dict containing audit results in standardized format
@@ -86,17 +97,45 @@ class JavaScriptBridge:
         Raises:
             AuditError: If audit fails
         """
-        self.logger.info(f"Running traditional audit on {project_path}")
+        # SECURITY FIX: Validate all inputs
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+        from src.security.validators import PathValidator, CommandValidator
 
-        # Build command
-        cmd = [
-            'npm', 'run', 'audit', '--',
-            '--project', project_path,
-            '--format', 'json'
-        ]
+        # Validate project path
+        validated_project_path = str(PathValidator.validate_project_path(project_path))
 
+        # Validate timeout
+        if not isinstance(timeout, int) or timeout < 1 or timeout > 3600:
+            raise ValueError(f"Invalid timeout: {timeout}. Must be between 1-3600 seconds")
+
+        self.logger.info(f"Running traditional audit on {validated_project_path}")
+
+        # Build command with validated inputs
+        cmd = ['npm', 'run', 'audit', '--', '--project', validated_project_path, '--chain', chain, '--format', 'json']
+
+        # Validate and sanitize tool names
         if tools:
-            cmd.extend(['--tools', ','.join(tools)])
+            # Allowed tool names (whitelist)
+            ALLOWED_TOOLS = {'slither', 'mythril', 'securify', 'smartcheck', 'manticore', 'echidna', 'foundry'}
+            validated_tools = []
+            for tool in tools:
+                if not isinstance(tool, str):
+                    raise ValueError(f"Tool name must be string, got {type(tool)}")
+                tool_lower = tool.lower().strip()
+                if tool_lower not in ALLOWED_TOOLS:
+                    self.logger.warning(f"Unknown tool '{tool}', skipping")
+                    continue
+                # Sanitize tool name
+                try:
+                    CommandValidator.sanitize_argument(tool_lower)
+                    validated_tools.append(tool_lower)
+                except Exception as e:
+                    self.logger.warning(f"Invalid tool name '{tool}': {e}")
+                    continue
+
+            if validated_tools:
+                cmd.extend(['--tools', ','.join(validated_tools)])
 
         self.logger.debug(f"Executing: {' '.join(cmd)}")
 

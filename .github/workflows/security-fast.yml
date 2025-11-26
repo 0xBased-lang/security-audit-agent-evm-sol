@@ -1,0 +1,97 @@
+# GitHub Actions: Fast Security Check (with caching)
+# Week 5: Optimized for speed with aggressive caching
+#
+# Use this for:
+# - Every commit (pre-merge)
+# - Quick feedback loop
+# - Development workflow
+#
+# Performance target: < 5 minutes
+
+name: Security Fast Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches-ignore: [main, master]
+
+env:
+  CACHE_VERSION: v1
+
+jobs:
+  fast-security-check:
+    name: Fast Security Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1  # Shallow clone for speed
+
+      - name: Cache Python dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ env.CACHE_VERSION }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ env.CACHE_VERSION }}-
+            ${{ runner.os }}-pip-
+
+      - name: Cache Foundry
+        uses: actions/cache@v4
+        with:
+          path: ~/.foundry
+          key: ${{ runner.os }}-foundry-${{ env.CACHE_VERSION }}
+          restore-keys: |
+            ${{ runner.os }}-foundry-
+
+      - name: Cache Slither analysis
+        uses: actions/cache@v4
+        with:
+          path: .slither-cache
+          key: ${{ runner.os }}-slither-${{ env.CACHE_VERSION }}-${{ hashFiles('**/*.sol') }}
+          restore-keys: |
+            ${{ runner.os }}-slither-${{ env.CACHE_VERSION }}-
+
+      - name: Set up Python (cached)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Foundry (cached)
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+          cache: true
+
+      - name: Install dependencies (minimal)
+        run: |
+          pip install --no-deps -r requirements.txt
+          pip install slither-analyzer
+
+      - name: Run fast security scan
+        run: |
+          python scripts/ci/pre_commit_security_scan.py --mode quick
+
+      - name: Cache analysis results
+        if: success()
+        uses: actions/cache/save@v4
+        with:
+          path: .slither-cache
+          key: ${{ runner.os }}-slither-${{ env.CACHE_VERSION }}-${{ hashFiles('**/*.sol') }}
+
+      - name: Comment on PR (if issues found)
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '⚠️ **Fast security check found issues.** Please review the logs above.'
+            });

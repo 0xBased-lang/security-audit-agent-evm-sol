@@ -49,22 +49,31 @@ npm run report -- --input ./audit-results/results.json --format markdown
 
 ```
 ├── src/
-│   ├── core/          # Core orchestration and AI analysis
+│   ├── core/              # Core orchestration (JavaScript)
 │   │   ├── AuditOrchestrator.js  # Main coordinator
-│   │   ├── AIAnalyzer.js         # Claude-powered analysis
 │   │   └── Logger.js             # Logging utility
-│   ├── evm/           # EVM-specific auditors
+│   ├── evm/               # EVM-specific auditors
 │   │   └── EVMAuditor.js         # Slither, Mythril, Foundry, etc.
-│   ├── solana/        # Solana-specific auditors
+│   ├── solana/            # Solana-specific auditors
 │   │   └── SolanaAuditor.js      # Cargo audit, Clippy, Anchor
-│   ├── reports/       # Report generation
-│   │   └── ReportGenerator.js   # Markdown, HTML, JSON reports
-│   └── cli.js         # Command-line interface
-├── docs/              # Comprehensive documentation
-│   ├── VULNERABILITIES.md        # Complete vuln reference
-│   └── TOOL_INTEGRATION.md       # Tool setup guides
-├── scripts/           # Automation scripts
-└── examples/          # Example contracts and audits
+│   ├── adversarial/       # Adversarial testing (Python)
+│   │   ├── unified_orchestrator.py  # Main Python orchestrator
+│   │   ├── strategies/            # Attack strategies (MEV, flash loans)
+│   │   ├── invariants/            # Protocol invariant tests
+│   │   └── agents/                # Agent definitions
+│   ├── reports/           # Report generation
+│   │   └── ReportGenerator.js    # Markdown, HTML, JSON reports
+│   └── cli.js             # Command-line interface
+├── .claude/               # Claude Code configuration
+│   ├── agents/            # Agent markdown definitions
+│   ├── hooks/             # Pre/post audit hooks
+│   └── commands/          # Slash commands
+├── docs/                  # Documentation
+├── tests/                 # Test suites
+│   ├── e2e/               # End-to-end tests
+│   ├── integration/       # Integration tests
+│   └── benchmarks/        # Performance benchmarks
+└── examples/              # Example contracts
 ```
 
 ## Architecture

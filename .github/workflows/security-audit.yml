@@ -1,0 +1,361 @@
+# GitHub Actions: Comprehensive Security Audit
+# Week 5: CI/CD Integration
+#
+# Triggers:
+# - On every pull request
+# - On push to main/develop
+# - Daily scheduled scan
+# - Manual workflow dispatch
+#
+# Features:
+# - Multi-stage security analysis
+# - Live adversarial testing (Week 4)
+# - Automated PR comments
+# - Slack/Discord notifications
+# - Security gate enforcement
+
+name: Security Audit
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '**/*.sol'
+      - '**/*.py'
+      - 'package.json'
+      - 'requirements.txt'
+
+  push:
+    branches: [main, develop]
+    paths:
+      - '**/*.sol'
+      - '**/*.py'
+
+  schedule:
+    # Daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+  workflow_dispatch:
+    inputs:
+      analysis_depth:
+        description: 'Analysis depth'
+        required: true
+        default: 'standard'
+        type: choice
+        options:
+          - quick
+          - standard
+          - deep
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+  FOUNDRY_PROFILE: ci
+
+jobs:
+  # ============================================================================
+  # Stage 1: Fast Preliminary Checks
+  # ============================================================================
+  preliminary-checks:
+    name: Preliminary Security Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better analysis
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pre-commit pip-audit
+
+      - name: Run pre-commit hooks
+        run: |
+          pre-commit install
+          pre-commit run --all-files || true
+        continue-on-error: true
+
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+
+      - name: Python dependency audit
+        run: |
+          pip-audit -r requirements.txt --format json > dependency-audit.json
+        continue-on-error: true
+
+      - name: Upload preliminary results
+        uses: actions/upload-artifact@v4
+        with:
+          name: preliminary-results
+          path: |
+            dependency-audit.json
+          retention-days: 30
+
+  # ============================================================================
+  # Stage 2: Static Analysis (Parallel)
+  # ============================================================================
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    needs: preliminary-checks
+    timeout-minutes: 20
+
+    strategy:
+      matrix:
+        tool: [slither, mythril, foundry]
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install analysis tools
+        run: |
+          pip install slither-analyzer mythril
+          forge --version
+          slither --version
+
+      - name: Run Slither
+        if: matrix.tool == 'slither'
+        run: |
+          python scripts/ci/run_slither.py --output slither-report.json
+        continue-on-error: true
+
+      - name: Run Mythril
+        if: matrix.tool == 'mythril'
+        run: |
+          python scripts/ci/run_mythril.py --output mythril-report.json
+        continue-on-error: true
+
+      - name: Run Foundry Tests
+        if: matrix.tool == 'foundry'
+        run: |
+          forge test --gas-report > foundry-report.txt
+        continue-on-error: true
+
+      - name: Upload analysis results
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-analysis-${{ matrix.tool }}
+          path: |
+            *-report.json
+            *-report.txt
+          retention-days: 30
+
+  # ============================================================================
+  # Stage 3: Live Adversarial Testing (Week 4)
+  # ============================================================================
+  adversarial-testing:
+    name: Live Adversarial Testing
+    runs-on: ubuntu-latest
+    needs: static-analysis
+    timeout-minutes: 30
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-adversarial.txt
+          pip install web3 eth-account eth-utils
+
+      - name: Start Anvil fork (background)
+        env:
+          ETHEREUM_RPC_URL: ${{ secrets.ETHEREUM_RPC_URL }}
+        run: |
+          # Fork mainnet for testing
+          anvil --fork-url $ETHEREUM_RPC_URL --port 8545 &
+          sleep 5
+        continue-on-error: true
+
+      - name: Run Live Adversarial Tests
+        env:
+          ETHEREUM_RPC_URL: http://127.0.0.1:8545
+        run: |
+          python scripts/ci/run_adversarial_tests.py \
+            --output adversarial-report.json \
+            --mode ci
+        timeout-minutes: 20
+        continue-on-error: true
+
+      - name: Generate Adversarial Report
+        run: |
+          python scripts/ci/generate_adversarial_report.py \
+            --input adversarial-report.json \
+            --output adversarial-summary.md
+
+      - name: Upload adversarial results
+        uses: actions/upload-artifact@v4
+        with:
+          name: adversarial-results
+          path: |
+            adversarial-report.json
+            adversarial-summary.md
+          retention-days: 30
+
+  # ============================================================================
+  # Stage 4: Aggregate Results & Security Gate
+  # ============================================================================
+  security-gate:
+    name: Security Gate
+    runs-on: ubuntu-latest
+    needs: [static-analysis, adversarial-testing]
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./results
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: pip install jinja2 pyyaml
+
+      - name: Aggregate results
+        run: |
+          python scripts/ci/aggregate_results.py \
+            --input ./results \
+            --output security-report.json
+
+      - name: Evaluate security gate
+        id: gate
+        run: |
+          python scripts/ci/evaluate_security_gate.py \
+            --report security-report.json \
+            --config .github/security-gate.yml
+        continue-on-error: true
+
+      - name: Generate comprehensive report
+        run: |
+          python scripts/ci/generate_comprehensive_report.py \
+            --input security-report.json \
+            --output SECURITY_REPORT.md \
+            --format markdown
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('SECURITY_REPORT.md', 'utf8');
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });
+
+      - name: Upload comprehensive report
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: |
+            security-report.json
+            SECURITY_REPORT.md
+          retention-days: 90
+
+      - name: Fail if security gate fails
+        if: steps.gate.outcome == 'failure'
+        run: |
+          echo "::error::Security gate failed! Critical vulnerabilities found."
+          exit 1
+
+  # ============================================================================
+  # Stage 5: Notifications
+  # ============================================================================
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: security-gate
+    if: always()
+    timeout-minutes: 5
+
+    steps:
+      - name: Download security report
+        uses: actions/download-artifact@v4
+        with:
+          name: security-report
+          path: ./
+
+      - name: Slack notification
+        if: secrets.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Security Audit ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Security Audit Results*\nStatus: ${{ job.status }}\nRun: ${{ github.run_number }}\nBranch: ${{ github.ref_name }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+      - name: Discord notification
+        if: secrets.DISCORD_WEBHOOK_URL != ''
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          title: "Security Audit Complete"
+          description: "Status: ${{ job.status }}"
+          color: ${{ job.status == 'success' && 0x00ff00 || 0xff0000 }}
+
+# ============================================================================
+# Security gate configuration reference
+# See .github/security-gate.yml for thresholds
+# ============================================================================

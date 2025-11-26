@@ -61,5 +61,10 @@ crytic-export/
 # Echidna
 corpus/
 
+# Test output directories
+test-audit/
+test-unified/
+test-results/
+
 # Don't ignore example .env
 !.env.example

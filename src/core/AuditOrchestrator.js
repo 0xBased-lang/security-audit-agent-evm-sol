@@ -8,7 +8,6 @@ const path = require('path');
 const fs = require('fs').promises;
 const EVMAuditor = require('../evm/EVMAuditor');
 const SolanaAuditor = require('../solana/SolanaAuditor');
-const AIAnalyzer = require('./AIAnalyzer');
 const ReportGenerator = require('../reports/ReportGenerator');
 const Logger = require('./Logger');
 
@@ -26,7 +25,6 @@ class AuditOrchestrator extends EventEmitter {
             },
             includeFormal: config.includeFormal || false, // Include Certora/formal verification
             parallel: config.parallel !== false, // Run tools in parallel by default
-            aiModel: config.aiModel || 'claude-sonnet-4-5',
             verbosity: config.verbosity || 'normal', // 'silent', 'normal', 'verbose'
             ...config
         };
@@ -35,7 +33,6 @@ class AuditOrchestrator extends EventEmitter {
         this.results = {
             evm: null,
             solana: null,
-            aiAnalysis: null,
             metadata: {
                 startTime: null,
                 endTime: null,
@@ -63,10 +60,7 @@ class AuditOrchestrator extends EventEmitter {
             // Run chain-specific audits
             await this.runChainAudits();
 
-            // AI-powered analysis
-            await this.runAIAnalysis();
-
-            // Generate report
+            // Generate report (Claude Code does AI analysis interactively)
             const report = await this.generateReport();
 
             this.results.metadata.endTime = new Date();
@@ -125,37 +119,6 @@ class AuditOrchestrator extends EventEmitter {
             this.results.solana = await solanaAuditor.audit();
             this.logger.success(`✓ Solana audit completed (${this.results.solana.findings.length} findings)`);
         }
-    }
-
-    /**
-     * AI-powered analysis using Claude
-     */
-    async runAIAnalysis() {
-        this.logger.info('🤖 Running AI-powered vulnerability analysis...');
-
-        const aiAnalyzer = new AIAnalyzer({
-            model: this.config.aiModel,
-            verbosity: this.config.verbosity
-        });
-
-        // Combine all findings
-        const allFindings = [
-            ...(this.results.evm?.findings || []),
-            ...(this.results.solana?.findings || [])
-        ];
-
-        // Read source files for context
-        const sourceFiles = await this.getRelevantSourceFiles(allFindings);
-
-        // Perform AI analysis
-        this.results.aiAnalysis = await aiAnalyzer.analyze({
-            findings: allFindings,
-            sourceFiles,
-            chain: this.config.chain,
-            projectPath: this.config.projectPath
-        });
-
-        this.logger.success('✓ AI analysis completed');
     }
 
     /**
@@ -255,6 +218,30 @@ class AuditOrchestrator extends EventEmitter {
         } else {
             return `${seconds}s`;
         }
+    }
+
+    /**
+     * Output findings to JSON for Claude Code analysis
+     */
+    async outputJSON(outputPath) {
+        const output = {
+            metadata: this.results.metadata,
+            statistics: this.getStatistics(),
+            findings: [
+                ...(this.results.evm?.findings || []),
+                ...(this.results.solana?.findings || [])
+            ],
+            toolResults: {
+                evm: this.results.evm,
+                solana: this.results.solana
+            }
+        };
+
+        const filePath = outputPath || path.join(this.config.outputDir, 'findings.json');
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        await fs.writeFile(filePath, JSON.stringify(output, null, 2));
+        this.logger.info(`📁 Findings exported to: ${filePath}`);
+        return filePath;
     }
 
     /**

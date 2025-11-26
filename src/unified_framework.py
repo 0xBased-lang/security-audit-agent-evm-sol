@@ -197,7 +197,8 @@ class UnifiedSecurityFramework:
             results = self.js_bridge.run_traditional_audit(
                 project_path=project_path,
                 tools=self.config.traditional_tools,
-                timeout=self.config.traditional_timeout
+                timeout=self.config.traditional_timeout,
+                chain=self.config.chain
             )
 
             # Convert to unified vulnerabilities
@@ -539,7 +540,13 @@ class UnifiedSecurityFramework:
         if 'severity' in vuln_data:
             try:
                 return VulnerabilitySeverity(vuln_data['severity'].upper())
-            except (ValueError, AttributeError):
+            except (ValueError, AttributeError) as e:
+                # Log invalid severity value and continue with inference
+                logger.warning(
+                    f"Invalid severity value in vulnerability data: "
+                    f"{vuln_data.get('severity')}. Error: {e}. "
+                    f"Inferring severity from profit metric."
+                )
                 pass
 
         # Determine from profit (assuming ETH/SOL at ~$2000-3000)

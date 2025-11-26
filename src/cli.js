@@ -72,11 +72,9 @@ program
                 console.log(`  ${chalk.green('Low')}: ${stats.low}`);
                 console.log(`  ${chalk.gray('Informational')}: ${stats.informational}`);
 
-                if (result.results.aiAnalysis) {
-                    console.log('\n' + chalk.bold('AI Risk Assessment:'));
-                    console.log(`  Risk Level: ${chalk.yellow(result.results.aiAnalysis.riskAssessment.level)}`);
-                    console.log(`  Deployment: ${result.results.aiAnalysis.riskAssessment.deploymentRecommendation}`);
-                }
+                // Export JSON for Claude Code analysis
+                await orchestrator.outputJSON();
+                console.log(chalk.cyan('📁 JSON findings exported for Claude Code analysis'));
 
                 process.exit(0);
             }
@@ -116,6 +114,153 @@ program
             console.error(chalk.red('❌ Report generation failed:'), error.message);
             process.exit(1);
         }
+    });
+
+program
+    .command('run-tools')
+    .description('Run security tools and output JSON (for Claude Code integration)')
+    .option('-c, --chain <type>', 'Chain type: evm, solana, or auto', 'auto')
+    .option('-p, --project <path>', 'Project path', process.cwd())
+    .option('-o, --output <file>', 'Output JSON file', './audit-results/findings.json')
+    .option('--tools <tools>', 'Comma-separated list of tools to use')
+    .action(async (options) => {
+        try {
+            console.log(chalk.cyan('Running security tools (JSON output for Claude Code)...'));
+
+            // Parse tools if specified
+            let tools = undefined;
+            if (options.tools) {
+                const toolList = options.tools.split(',').map(t => t.trim());
+                tools = {
+                    evm: toolList.filter(t => ['slither', 'mythril', 'echidna', 'foundry'].includes(t)),
+                    solana: toolList.filter(t => ['cargo-audit', 'clippy', 'anchor-test'].includes(t))
+                };
+            }
+
+            const config = {
+                chain: options.chain,
+                projectPath: path.resolve(options.project),
+                outputDir: path.dirname(path.resolve(options.output)),
+                tools,
+                verbosity: 'normal'
+            };
+
+            const orchestrator = new AuditOrchestrator(config);
+
+            // Detect chain and run audits
+            if (config.chain === 'auto') {
+                config.chain = await orchestrator.detectChainType();
+            }
+            await orchestrator.runChainAudits();
+
+            // Output JSON for Claude Code
+            const jsonPath = await orchestrator.outputJSON(path.resolve(options.output));
+
+            console.log(chalk.green('✅ Tools completed'));
+            console.log(chalk.cyan(`📁 Findings: ${jsonPath}`));
+            console.log(chalk.gray('\nClaude Code can now read this JSON to analyze findings.'));
+
+        } catch (error) {
+            console.error(chalk.red('❌ Tool execution failed:'), error.message);
+            process.exit(1);
+        }
+    });
+
+program
+    .command('adversarial')
+    .description('Run adversarial security testing (MEV, flash loans, oracle manipulation)')
+    .option('-p, --project <path>', 'Project path', process.cwd())
+    .option('-m, --mode <mode>', 'Audit mode: quick, standard, deep', 'standard')
+    .option('-o, --output <dir>', 'Output directory', './audit-results')
+    .option('-s, --strategies <strategies>', 'Comma-separated strategies', 'mev,flash_loan,oracle_manipulation,invariants')
+    .option('--fork-url <url>', 'RPC URL for mainnet fork')
+    .option('--fork-block <block>', 'Block number to fork from')
+    .action(async (options) => {
+        const { spawn } = require('child_process');
+
+        console.log(chalk.cyan('Running adversarial security testing...'));
+        console.log(chalk.gray(`  Mode: ${options.mode}`));
+        console.log(chalk.gray(`  Strategies: ${options.strategies}`));
+
+        const args = [
+            '-m', 'src.adversarial.unified_orchestrator',
+            '--project', path.resolve(options.project),
+            '--mode', options.mode,
+            '--output', path.resolve(options.output),
+            '--strategies', options.strategies
+        ];
+
+        if (options.forkUrl) {
+            args.push('--fork-url', options.forkUrl);
+        }
+        if (options.forkBlock) {
+            args.push('--fork-block', options.forkBlock);
+        }
+
+        const pythonProcess = spawn('python', args, {
+            cwd: path.resolve(__dirname, '..'),
+            stdio: 'inherit'
+        });
+
+        pythonProcess.on('close', (code) => {
+            if (code === 0) {
+                console.log(chalk.green('\n✅ Adversarial testing complete'));
+                console.log(chalk.cyan(`📁 Results: ${options.output}/adversarial-findings.json`));
+                console.log(chalk.gray('\nClaude Code can now read and analyze these findings.'));
+            } else {
+                console.error(chalk.red(`\n❌ Adversarial testing failed with code ${code}`));
+            }
+            process.exit(code);
+        });
+
+        pythonProcess.on('error', (err) => {
+            console.error(chalk.red('Failed to start adversarial testing:'), err.message);
+            console.log(chalk.yellow('\nTip: Make sure Python is installed and in your PATH'));
+            process.exit(1);
+        });
+    });
+
+program
+    .command('invariants')
+    .description('Run Foundry invariant tests')
+    .option('-p, --project <path>', 'Project path', process.cwd())
+    .option('-r, --runs <number>', 'Number of fuzz runs', '256')
+    .option('-d, --depth <number>', 'Call depth', '15')
+    .option('--match <pattern>', 'Test pattern to match', 'Invariant')
+    .action(async (options) => {
+        const { spawn } = require('child_process');
+
+        console.log(chalk.cyan('Running Foundry invariant tests...'));
+        console.log(chalk.gray(`  Fuzz runs: ${options.runs}`));
+        console.log(chalk.gray(`  Call depth: ${options.depth}`));
+
+        const args = [
+            'test',
+            '--match-contract', options.match,
+            '--fuzz-runs', options.runs,
+            '--fuzz-seed', Date.now().toString(),
+            '-vvv'
+        ];
+
+        const forgeProcess = spawn('forge', args, {
+            cwd: path.resolve(options.project),
+            stdio: 'inherit'
+        });
+
+        forgeProcess.on('close', (code) => {
+            if (code === 0) {
+                console.log(chalk.green('\n✅ All invariants held'));
+            } else {
+                console.log(chalk.red('\n❌ Invariant violations detected!'));
+            }
+            process.exit(code);
+        });
+
+        forgeProcess.on('error', (err) => {
+            console.error(chalk.red('Failed to run Foundry:'), err.message);
+            console.log(chalk.yellow('\nTip: Install Foundry with: curl -L https://foundry.paradigm.xyz | bash'));
+            process.exit(1);
+        });
     });
 
 program

@@ -1,0 +1,126 @@
+# GitHub Actions: Performance Benchmarks
+# Week 6: Continuous performance monitoring and regression detection
+
+name: Performance Benchmarks
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+  schedule:
+    # Weekly on Sunday at 3 AM UTC
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  benchmark:
+    name: Run Performance Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install psutil pytest pytest-benchmark
+
+      - name: Download baseline (if exists)
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: benchmark-baseline
+          path: tests/benchmarks/results/
+
+      - name: Run benchmarks
+        run: |
+          python tests/benchmarks/benchmark_framework.py
+
+      - name: Check for regressions
+        id: regression
+        continue-on-error: true
+        run: |
+          python tests/benchmarks/benchmark_framework.py --check-regression
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.run_number }}
+          path: tests/benchmarks/results/
+          retention-days: 90
+
+      - name: Save baseline (on main branch)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          python tests/benchmarks/benchmark_framework.py --save-baseline
+
+      - name: Upload new baseline
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-baseline
+          path: tests/benchmarks/results/baseline_benchmark.json
+          retention-days: 365
+
+      - name: Comment on PR (if regression)
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '⚠️ **Performance regression detected!** Please review benchmark results.'
+            });
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+
+      - name: Run integration tests
+        run: |
+          pytest tests/integration/ -v --tb=short
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results
+          path: |
+            tests/integration/*.xml
+            tests/integration/*.log
+          retention-days: 30

@@ -52,8 +52,16 @@ class DirectRPCAdapter(SimulationAdapter):
         if not WEB3_AVAILABLE:
             raise ImportError("web3.py required. Install: pip install web3")
 
+        # SECURITY FIX: Validate chain name and RPC URL
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../..'))
+        from src.security.validators import ChainValidator, URLValidator
+
+        # Validate chain name
+        validated_chain = ChainValidator.validate_chain_name(chain)
+
         # Get RPC URL from env or parameter
-        env_key = f"{chain.upper()}_RPC_URL"
+        env_key = f"{validated_chain.upper()}_RPC_URL"
         self.rpc_url = rpc_url or os.environ.get(env_key)
 
         if not self.rpc_url:
@@ -61,6 +69,12 @@ class DirectRPCAdapter(SimulationAdapter):
                 f"No RPC URL for {chain}. "
                 f"Set {env_key} environment variable or provide rpc_url parameter"
             )
+
+        # Validate RPC URL
+        self.rpc_url = URLValidator.validate_rpc_url(
+            self.rpc_url,
+            require_safe_domain=False  # Allow custom RPC endpoints
+        )
 
         self.w3: Optional[Web3] = None
 

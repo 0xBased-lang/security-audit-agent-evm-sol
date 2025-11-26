@@ -266,22 +266,51 @@ def _has_tenderly_key() -> bool:
 
 def _has_hardhat_config(chain: str) -> bool:
     """Check if Hardhat config exists for chain"""
+    # SECURITY FIX: Validate chain name to prevent injection
+    try:
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../..'))
+        from src.security.validators import ChainValidator
+        validated_chain = ChainValidator.validate_chain_name(chain)
+    except Exception:
+        # If validation fails, chain is not supported
+        return False
+
     # Check for hardhat.config.js with chain config
     import os.path
-    if os.path.exists('hardhat.config.js'):
+    config_path = os.path.abspath('hardhat.config.js')
+
+    # Ensure config file is in current directory (not traversal)
+    if not config_path.startswith(os.getcwd()):
+        return False
+
+    if os.path.exists(config_path):
         try:
-            with open('hardhat.config.js', 'r') as f:
+            with open(config_path, 'r') as f:
                 content = f.read()
-                return chain in content
-        except:
+                return validated_chain in content
+        except Exception as e:
+            logging.getLogger(__name__).warning(
+                f"Failed to read hardhat config: {e}"
+            )
             pass
     return False
 
 
 def _has_rpc_endpoint(chain: str) -> bool:
     """Check if RPC endpoint is configured"""
-    # Check environment variables
-    rpc_key = f"{chain.upper()}_RPC_URL"
+    # SECURITY FIX: Validate chain name before using in environment variable
+    try:
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../..'))
+        from src.security.validators import ChainValidator
+        validated_chain = ChainValidator.validate_chain_name(chain)
+    except Exception:
+        # If validation fails, chain is not supported
+        return False
+
+    # Check environment variables with validated chain name
+    rpc_key = f"{validated_chain.upper()}_RPC_URL"
     return bool(os.environ.get(rpc_key))
 
 

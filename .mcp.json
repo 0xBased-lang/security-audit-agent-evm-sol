@@ -1,0 +1,49 @@
+{
+  "mcpServers": {
+    "vulnerability-feed": {
+      "command": "python",
+      "args": [
+        "-m",
+        "src.mcp_servers.vulnerability_feed.server"
+      ],
+      "description": "Real-time vulnerability database and exploit pattern feed. Provides CVE database, MEV attack patterns, and historical exploit data.",
+      "tools": [
+        "search_vulnerabilities",
+        "get_mev_patterns",
+        "get_vulnerability_stats",
+        "check_function_vulnerability"
+      ]
+    },
+    "evm-analysis": {
+      "command": "python",
+      "args": [
+        "-m",
+        "src.mcp_servers.evm_analysis.server"
+      ],
+      "description": "Static analysis tool orchestration for Solidity contracts. Runs Slither, Mythril, Foundry, and aggregates results.",
+      "tools": [
+        "run_slither",
+        "run_mythril",
+        "run_foundry_fuzz",
+        "get_slither_detectors",
+        "check_tool_availability"
+      ]
+    },
+    "adversarial": {
+      "command": "python",
+      "args": [
+        "-m",
+        "src.mcp_servers.adversarial.server"
+      ],
+      "description": "Economic exploit simulation and attack profitability analysis. Simulates sandwich attacks, flash loans, oracle manipulation, and governance attacks.",
+      "tools": [
+        "simulate_sandwich_attack",
+        "simulate_flash_loan_attack",
+        "simulate_oracle_manipulation",
+        "calculate_mev_profitability",
+        "get_attack_template",
+        "analyze_protocol_vulnerabilities"
+      ]
+    }
+  }
+}

@@ -90,20 +90,19 @@ function calculateReward() public view returns (uint) {
 Invoke Python adversarial framework:
 ```bash
 python3 -c "
-from src.adversarial.agents.flash_loan_exploiter import FlashLoanAgent
+from src.adversarial.strategies.flash_loan import FlashLoanAttack
 
-agent = FlashLoanAgent()
-exploits = agent.test_flash_loan_attacks(
-    contract='<contract_path>',
-    functions=['borrow', 'swap', 'calculatePrice'],
-    flash_loan_amount=1000000  # 1M tokens
-)
+# Use the FlashLoanAttack strategy for flash loan vulnerability detection
+attack = FlashLoanAttack()
 
-for exploit in exploits:
-    if exploit.profit > 0:
-        print(f'Profit: {exploit.profit} ETH')
-        print(f'Steps: {exploit.attack_sequence}')
+# Or use the unified orchestrator for comprehensive analysis
+# python -m src.adversarial.unified_orchestrator --project <path> --mode standard --strategies flash_loan
 "
+```
+
+Or use the CLI:
+```bash
+node src/cli.js adversarial --project <contract_path> --strategies flash_loan
 ```
 
 ### Step 5: Format Results

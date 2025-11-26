@@ -172,37 +172,68 @@ cd security-audit-agent-evm-sol
 
 # Install dependencies
 npm install
+pip install -r requirements.txt
 
-# Configure Claude Code
-claude config
+# Verify tools
+node src/cli.js tools
 ```
 
 ## 📖 Usage
 
-### Basic Audit
+### CLI Commands
 
 ```bash
-# Audit an EVM contract
-./scripts/audit-evm.sh path/to/contract.sol
+# Quick audit (2 min) - Fast preliminary scan
+node src/cli.js audit --project ./path/to/contracts --mode quick
 
-# Audit a Solana program
-./scripts/audit-solana.sh path/to/program/
+# Standard audit (10 min) - Balanced analysis
+node src/cli.js audit --project ./path/to/contracts --mode standard
 
-# Full project audit
-claude /audit --project ./path/to/project --chain evm
+# Deep audit (30 min) - Comprehensive analysis
+node src/cli.js audit --project ./path/to/contracts --mode deep
+
+# Adversarial testing (MEV, flash loans, oracle manipulation)
+node src/cli.js adversarial --project ./path/to/contracts --mode standard
+
+# Run Foundry invariant tests
+node src/cli.js invariants --project ./path/to/contracts --runs 256
 ```
 
-### Advanced Usage
+### Claude Code Integration
+
+Use the `/audit` slash command in Claude Code:
 
 ```bash
-# Deep audit with formal verification
-claude /deep-audit --chain evm --include-formal
+# In Claude Code
+/audit ./my-defi-project --deep
 
-# Focus on specific vulnerability types
-claude /audit --focus reentrancy,access-control --chain solana
+# Claude Code will:
+# 1. Run pre-audit validation hook
+# 2. Spawn specialized security agents
+# 3. Execute static analysis (Slither, Mythril, Foundry)
+# 4. Run adversarial testing (MEV, flash loans)
+# 5. Filter false positives
+# 6. Generate comprehensive report
+# 7. Run post-audit hooks (summary, notifications)
+```
 
-# Generate audit report for stakeholders
-claude /generate-report --format pdf --detail comprehensive
+### Audit Modes Comparison
+
+| Mode | Duration | Static Analysis | Adversarial | Invariants |
+|------|----------|-----------------|-------------|------------|
+| **Quick** | 2-5 min | Slither only | ❌ | ❌ |
+| **Standard** | 5-15 min | Slither + Foundry | ✅ Basic | ✅ 256 runs |
+| **Deep** | 15-30 min | All tools | ✅ Full | ✅ 10000 runs |
+
+### Wave Mode for Large Projects
+
+For projects with >2000 LOC or >20 contracts, wave mode auto-activates:
+
+```
+Wave 1: Discovery & Fast Analysis (2-5 min)
+Wave 2: Deep Static Analysis (5-10 min)
+Wave 3: Adversarial Testing (5-10 min)
+Wave 4: Synthesis & Reporting (2-5 min)
 ```
 
 ## 🔧 Framework Components
@@ -298,6 +329,43 @@ The Claude AI orchestrator performs:
 5. **False Positive Filtering**: Reduces noise through contextual analysis
 6. **Report Generation**: Creates comprehensive, readable audit reports
 7. **Remediation Suggestions**: Provides code fixes and best practices
+
+### 4. Agent Architecture
+
+```
+security-orchestrator (Lead Agent - Opus/Sonnet)
+├── static-analysis-agent (Sonnet)
+│   ├── slither-agent (Haiku)
+│   ├── mythril-agent (Haiku)
+│   └── foundry-agent (Haiku)
+├── adversarial-agent (Sonnet)
+│   ├── mev-hunter-agent (Haiku)
+│   ├── flash-loan-detector (Haiku)
+│   ├── governance-attack-agent (Haiku)
+│   ├── liquidation-sniper-agent (Haiku)
+│   └── invariant-checker (Haiku)
+└── false-positive-filter (Utility)
+```
+
+**Agent Responsibilities**:
+- **security-orchestrator**: Coordinates all agents, prioritizes findings, generates final report
+- **static-analysis-agent**: Runs Slither, Mythril, Foundry based on audit mode
+- **adversarial-agent**: Executes MEV, flash loan, oracle manipulation tests
+- **false-positive-filter**: Removes duplicates and false positives from combined results
+
+### 5. Hooks System
+
+**Pre-Audit Hook** (`.claude/hooks/pre-audit.sh`):
+- Validates tool availability
+- Checks project structure
+- Estimates audit complexity
+- Outputs JSON for Claude Code
+
+**Post-Audit Hook** (`.claude/hooks/post-audit.sh`):
+- Calculates security score (0-100)
+- Generates AUDIT_SUMMARY.md
+- Sends Slack/Discord notifications
+- Archives results with timestamps
 
 ## 📋 Comprehensive Vulnerability Coverage
 

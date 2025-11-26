@@ -7,7 +7,7 @@ This vulnerability caused $52M in losses in 2024, including major exploits
 like Euler Finance ($197M) and Mango Markets ($114M).
 """
 
-from typing import List, Any
+from typing import List, Any, Dict
 from decimal import Decimal
 from .base import StrategyTemplate
 from ..simulation.evm_environment import Action, ActionType
